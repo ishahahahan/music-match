@@ -1,0 +1,35 @@
+# MusicMatch Project Requirements
+# =================================
+
+# Core Dependencies
+spotipy>=2.22.1              # Spotify Web API wrapper
+python-dotenv>=1.0.0         # Environment variable management
+supabase>=2.0.0              # Supabase Python client
+
+# Data Processing
+pandas>=2.0.0                # Data analysis and manipulation
+numpy>=1.24.0                # Numerical computing
+
+# Genre Processing (Last.fm integration)
+fuzzywuzzy>=0.18.0           # Fuzzy string matching for genre extraction
+python-Levenshtein>=0.21.0   # Fast string distance calculations (optional but recommended)
+requests>=2.31.0             # HTTP requests for Last.fm API
+
+# Jupyter Environment
+jupyter>=1.0.0               # Jupyter notebook environment
+ipykernel>=6.25.0            # IPython kernel for Jupyter
+
+# Optional: Audio Analysis
+librosa>=0.10.0              # Audio analysis library (if doing local audio processing)
+matplotlib>=3.7.0            # Plotting and visualization
+seaborn>=0.12.0              # Statistical data visualization
+
+# Development Tools (optional)
+black>=23.0.0                # Code formatter
+flake8>=6.0.0                # Code linter
+pytest>=7.4.0               # Testing framework
+
+# Database Management
+psycopg2-binary>=2.9.0       # PostgreSQL adapter (for direct DB access if needed)
+
+# Note: Install with: pip install -r requirements.txt
