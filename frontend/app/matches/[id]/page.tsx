@@ -1,3 +1,4 @@
+import { MatchCard } from "@/components/MatchCard";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 
 export default async function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -9,6 +10,7 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
         Phase 4 fills this with shared-taste highlights, chat starters, and the Blend playlist
         button. The score breakdown renders like this:
       </p>
+      <MatchCard name={decodeURIComponent(id)} score={0.77} sharedTopArtist="Radiohead" />
       <ScoreBreakdown genre={0.92} artist={0.71} audio={0.64} />
     </main>
   );
