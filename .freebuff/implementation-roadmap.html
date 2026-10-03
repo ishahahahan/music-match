@@ -107,6 +107,7 @@ footer{margin-top:40px;padding:22px 0 46px;border-top:1px solid var(--line);colo
     <span class="badge"><b>9</b> phases (0–8)</span>
     <span class="badge"><b>~8 weeks</b> solo-dev MVP</span>
     <span class="badge">Web + <b>mobile-ready API</b></span>
+    <span class="badge">Data: <b>MongoDB Atlas (NoSQL)</b></span>
     <span class="badge">Source: <b>IMPLEMENTATION_ROADMAP.md</b></span>
   </div>
 </div></header>
@@ -162,11 +163,11 @@ footer{margin-top:40px;padding:22px 0 46px;border-top:1px solid var(--line);colo
     <p class="goal">"Users can login" — a stable MusicMatch account per Spotify login. Foundation for everything after it.</p>
     <ul class="tasks">
       <li><b>Spotify OAuth 2.0 authorization-code + PKCE</b> — <code>/auth/login</code> → <code>/auth/callback</code> exchanges code server-side; kill raw-token-in-JSON + <code>input()</code> copying; store refresh token encrypted at rest.</li>
-      <li><b>Supabase Auth identity</b> — real <code>auth.uid()</code> per user; <code>users.id = auth.users.id</code> <b>fixes the latent FK violation</b> in <code>create_or_update_user</code> (<code>database_helper.py:48</code>).</li>
-      <li><b>RLS strategy</b> — recommended: service-role key server-side only + strict RLS for any direct client access (today's anon key can never satisfy <code>auth.uid()=user_id</code> policies).</li>
+      <li><b>User document identity</b> — <code>users/{spotify_id}</code> created on first login. No foreign keys in NoSQL: the latent FK violation in <code>create_or_update_user</code> (<code>database_helper.py:48</code>) disappears with the schema; data is denormalized into documents, so models evolve field-by-field with zero migrations.</li>
+      <li><b>Access control</b> — MongoDB stays backend-only (<code>MONGODB_URI</code> server secret + our JWT middleware); users never get DB credentials. Firestore alternative: versioned security rules + Admin SDK — same middleware pattern.</li>
       <li><b>First-party JWT for API clients</b> — <code>POST /api/v1/auth/token</code> → access + refresh; all <code>/api/v1/**</code> use <code>Authorization: Bearer</code>; never tokens in query strings or bodies.</li>
     </ul>
-    <div class="acc"><b>Acceptance:</b> clean browser → login → <code>GET /api/v1/me</code> works with no token in the URL; <code>users.id</code> FK satisfied; unauthenticated = 401; tokens never logged.</div>
+    <div class="acc"><b>Acceptance:</b> clean browser → login → <code>GET /api/v1/me</code> works with no token in the URL; a <code>users/{spotify_id}</code> doc exists; unauthenticated = 401; tokens and <code>MONGODB_URI</code> never logged.</div>
   </div>
 </section>
 <section id="p2">
@@ -178,7 +179,7 @@ footer{margin-top:40px;padding:22px 0 46px;border-top:1px solid var(--line);colo
       <li><b>Real background execution</b> — replace blocking <code>time.sleep(0.5)</code> in <code>_background_sync_all_data</code> (<code>backend.py:237</code>) with <code>asyncio.sleep</code> / a queue.</li>
       <li><b>Real sync status</b> — persist job rows (status, counts, timestamps, error) instead of fabricating <code>last_synced</code> (<code>backend.py:293</code>); frontend polls it.</li>
       <li><b>Rate-limit &amp; retry</b> — honor <code>Retry-After</code> on 429, backoff on 5xx, per-user serialization.</li>
-      <li><b>Batch writes</b> — kill the N+1 storm in <code>upsert_track</code>/<code>upsert_track_artists</code> (<code>database_helper.py:135</code>, <code>:203</code>); delete-then-insert → single transaction.</li>
+      <li><b>Batch writes</b> — kill the N+1 storm in <code>upsert_track</code>/<code>upsert_track_artists</code> (<code>database_helper.py:135</code>, <code>:203</code>) with ordered <code>bulkWrite</code> upserts; delete-then-insert → replace-one/transaction.</li>
       <li><b>Idempotency</b> — re-running a sync yields identical data.</li>
       <li><b>Genre extraction in the loop</b> — run <code>GenreExtractor.extract_genres</code> (<code>lastfm.py:27</code>) during sync, not just the manual endpoint; fix blocklist regexes killing "dancehall"/"big band".</li>
     </ul>
@@ -193,14 +194,14 @@ footer{margin-top:40px;padding:22px 0 46px;border-top:1px solid var(--line);colo
     <ul class="tasks">
       <li><b>Genre fingerprint</b> — weighted vector from <code>compute_user_genre_preferences</code> (<code>database_helper.py:336</code>, weight <code>w=(N−p+1)/N</code>).</li>
       <li><b>Top artists / tracks / eras</b> from the three time windows; <b>audio-feature fingerprint</b> (energy, valence, danceability, tempo…) → plain-language sound blurb.</li>
-      <li><b>Music personality</b> deterministic template (v1); visibility controls; wire-or-drop dormant <code>user_preferences</code>, <code>user_audio_preferences</code>, <code>user_saved_albums</code>.</li>
+      <li><b>Music personality</b> deterministic template (v1); visibility controls; legacy SQL leftovers (<code>user_preferences</code>, <code>user_audio_preferences</code>, <code>user_saved_albums</code>) become fields or subcollections on the user document — embed vs. subcollection per access pattern.</li>
       <li>Endpoints: <code>GET /api/v1/me/profile</code>, public <code>GET /api/v1/users/{id}</code> respecting visibility.</li>
     </ul>
     <h3>Remove the 0.40 cap</h3>
     <ul class="tasks">
       <li><b>Artist score (0.3)</b> — weighted Jaccard over top-200 artists: <code>Σ min(wₐ,w_b) / Σ max(wₐ,w_b)</code>.</li>
       <li><b>Audio score (0.3)</b> — cosine similarity of normalized audio-feature centroids (replace the hardcoded <code>0.0</code>s at <code>database_helper.py:542</code>).</li>
-      <li><b>Overall</b> = <code>0.4·genre + 0.3·artist + 0.3·audio</code> ∈ [0,1], stored with a <b>component breakdown</b> so the UI can explain the match.</li>
+      <li><b>Overall</b> = <code>0.4·genre + 0.3·artist + 0.3·audio</code> ∈ [0,1], computed in <b>application code</b> (no SQL RPCs) and persisted as a score document with a <b>component breakdown</b> so the UI can explain the match.</li>
     </ul>
     <div class="acc"><b>Acceptance:</b> identical histories → ≥ 0.95; disjoint → ≤ 0.1; genre-only fixture proves the 0.40 cap is gone; profile renders complete with no user input.</div>
   </div>
@@ -210,8 +211,8 @@ footer{margin-top:40px;padding:22px 0 46px;border-top:1px solid var(--line);colo
   <div class="phase">
     <p class="goal">Users see and act on matches.</p>
     <ul class="tasks">
-      <li><b>Candidate discovery</b> — v1 pairwise batch (nightly + on new users, fine to ~10k users); v2 pgvector/ANN when O(n²) grows.</li>
-      <li><b>Endpoints</b> — <code>GET /api/v1/matches</code> (ranked + breakdown + headline); <code>POST …/accept</code> · <code>…/reject</code> wiring dormant <code>user_matches</code> (mutual accept = match); <code>GET …/chat-starters</code> surfacing <code>generate_chat_starters()</code>; <code>DELETE …</code> unmatch.</li>
+      <li><b>Candidate discovery</b> — v1 pairwise batch (nightly + on new users, fine to ~10k users); v2 Atlas Vector Search / ANN when O(n²) grows.</li>
+      <li><b>Endpoints</b> — <code>GET /api/v1/matches</code> (ranked + breakdown + headline); <code>POST …/accept</code> · <code>…/reject</code> writing <code>users/{id}/swipes</code> + <code>matches/{pair_id}</code> (mutual accept = match); <code>GET …/chat-starters</code> surfacing <code>generate_chat_starters()</code>; <code>DELETE …</code> unmatch.</li>
       <li><b>Blend playlist creation</b> — matched pair → collaborative playlist via Spotify Web API: union of top tracks re-ranked by pairwise score; store <code>blend_playlist_id</code>.</li>
       <li><b>Freshness</b> — invalidate a user's score rows when they re-sync.</li>
     </ul>
@@ -250,7 +251,7 @@ footer{margin-top:40px;padding:22px 0 46px;border-top:1px solid var(--line);colo
   <div class="phase">
     <ul class="tasks">
       <li><b>Backend</b> — Docker → Render / Fly.io / Railway; <code>uvicorn backend:app</code>; healthcheck <code>/health</code>.</li>
-      <li><b>Database</b> — hosted Supabase via <code>migrations/</code> workflow; <b>service-role key only in platform secrets</b>; backups on.</li>
+      <li><b>Database</b> — <b>MongoDB Atlas</b> free tier → paid (alt: Firebase Firestore); <code>MONGODB_URI</code> in platform secrets only; collections auto-create on first write; indexes via <code>migrate-mongo</code>; backups on.</li>
       <li><b>Frontend</b> — Vercel (<code>NEXT_PUBLIC_API_URL</code>); exact-match Spotify redirect URIs for prod + local.</li>
       <li><b>Environments</b> — staging + prod with separate DBs; secrets in platform env only (<code>.env.example</code> tracked, <code>.env</code> never); log aggregation, error alerting, uptime check.</li>
     </ul>
@@ -288,9 +289,10 @@ footer{margin-top:40px;padding:22px 0 46px;border-top:1px solid var(--line);colo
     <tr><th style="width:34%">Risk</th><th style="width:12%">Impact</th><th>Mitigation</th></tr>
     <tr><td>Leaked Spotify secret already abused</td><td class="sev-h">High</td><td>Rotate first (0.1); audit dashboard usage after rotation</td></tr>
     <tr><td>Broken <code>.gitignore</code> may have committed secrets/datasets</td><td class="sev-h">High</td><td>History scan (<code>git log -p</code>); rewrite history only if confirmed; keep datasets out of git</td></tr>
-    <tr><td>RLS + anon key = silent data errors</td><td class="sev-h">High</td><td>P1 service-role/RLS decision before writing more DB code</td></tr>
+    <tr><td>Access-control gap — leaked DB creds or over-permissive rules</td><td class="sev-h">High</td><td>P1 backend-only access decision (JWT middleware) before writing more DB code</td></tr>
     <tr><td>Spotify rate limits during sync</td><td class="sev-m">Medium</td><td>Backoff, per-user serialization, incremental syncs</td></tr>
-    <tr><td>Pairwise matching O(n²) at scale</td><td class="sev-m">Medium</td><td>Batch precompute now; pgvector/ANN design for v2</td></tr>
+    <tr><td>Pairwise matching O(n²) at scale</td><td class="sev-m">Medium</td><td>Batch precompute now; vector-index design (Atlas Vector Search) for v2</td></tr>
+    <tr><td>NoSQL vendor lock-in (Firebase/MongoDB)</td><td class="sev-m">Medium</td><td>Thin repository layer over the driver; self-contained documents keep export/migration feasible</td></tr>
     <tr><td>Scope creep (chat, social feed)</td><td class="sev-m">Medium</td><td>Chat starters only in MVP; real chat is post-MVP</td></tr>
     <tr><td>Spotify API/ToS changes (2019 dataset stale)</td><td class="sev-m">Medium</td><td>Live API only, not static CSVs; pin API version</td></tr>
   </table>
