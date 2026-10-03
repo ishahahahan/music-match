@@ -137,3 +137,46 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Contact
 - GitHub: [@ishahahahan](https://github.com/ishahahahan)
+
+---
+
+## Repository layout (current)
+
+```
+backend/            FastAPI app — app/{main,config}.py, api/v1/, services/, repositories/, models/
+                    tests/{unit,integration}/, pyproject.toml, Dockerfile, requirements.txt
+frontend/           Next.js (App Router) starter: app/ routes, components/, lib/api.ts
+migrations/         MongoDB index scripts (SQL files kept for the retired schema)
+legacy/             Retired Gen-1/Gen-2 code (notebooks, Supabase helper, old backend) — reference only
+docs/               Historical docs + DATABASE_SETUP (superseded by the NoSQL decision)
+dataset/            Research CSVs (gitignored)
+pdfs/               Research papers
+.env.example        All env keys — copy to .env and fill in
+docker-compose.yml  Local MongoDB for offline dev
+IMPLEMENTATION_ROADMAP.md   Source of truth for the build plan
+```
+
+Data layer: **MongoDB Atlas / NoSQL** (see the roadmap's Data decision) — only
+`backend/app/repositories/` touches the driver, so the vendor stays swappable.
+
+## Quickstart
+
+```bash
+# 1. Backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r backend/requirements.txt
+cp .env.example .env                # fill SPOTIFY_* and JWT_SECRET
+
+# 2. Database (local dev)
+docker compose up -d mongo          # or set MONGODB_URI to an Atlas cluster
+python migrations/0001_initial_indexes.py
+
+# 3. Run
+cd backend && uvicorn app.main:app --reload    # API: http://localhost:8000/docs
+
+# 4. Checks (no network needed)
+cd backend && pytest -m "not integration" && black --check app tests && flake8 app tests
+
+# 5. Frontend
+cd frontend && npm install && npm run dev       # http://localhost:3000
+```
