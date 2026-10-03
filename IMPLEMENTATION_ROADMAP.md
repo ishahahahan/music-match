@@ -4,6 +4,7 @@
 **Status:** Living document · **Source of truth for:** build plan
 **Companion doc:** `.freebuff/codebase-explainer.html` (visual codebase tour, Preview tab)
 **Scope decision:** Web app first (Next.js), with a **mobile-ready REST API** — every product feature is reached through a versioned HTTP API that a future mobile client can consume unchanged.
+**Data decision:** **NoSQL document database — MongoDB Atlas** (flexible/evolving schema, native FastAPI driver, free tier, built-in vector search for later matching) instead of SQL/Supabase. Firebase Firestore documented as the evaluated alternative (Phase 1/Phase 7). Data models are expected to keep changing, so documents over fixed tables; the legacy SQL schema stays read-only until retired.
 
 ---
 
@@ -15,7 +16,7 @@ MusicMatch is "Hinge × Spotify": log in with Spotify, derive a music profile fr
 |---|---|---|
 | Gen 1 | Jupyter notebooks (scraping, genre experiments, playlists) | Research artifacts; some orphaned (see §2, Phase 0) |
 | Gen 2 | FastAPI backend (`backend.py`, 860 LOC) + `database_helper.py` (691 LOC) + `musicmatch_client.py` SDK | Functional prototype; mostly **untracked in git** |
-| Gen 3 | Supabase Postgres schema (`schema.sql`, `migrations/`, 20 tables) | Schema written ahead of code; 6 tables dormant; RLS incompatible with current access pattern |
+| Gen 3 | Supabase Postgres schema (`schema.sql`, `migrations/`, 20 tables) | Schema written ahead of code; 6 tables dormant; RLS incompatible with current access pattern — **superseded by the NoSQL data-model decision above** |
 
 **What works:** Spotify OAuth (manual, raw-token-in-JSON), profile-data sync endpoints, genre extraction pipeline (`lastfm.py`), genre-preference computation, DB persistence via Supabase.
 
@@ -59,17 +60,17 @@ This is the foundation of "users can login" in the product requirements.
    - `GET /auth/login` → redirect to Spotify with `code_challenge`; `GET /auth/callback` exchanges `code` + `code_verifier` for tokens **server-side**.
    - Kill the current pattern where raw tokens are returned in JSON for the client to copy via `input()` (works only for the CLI demo).
    - Store refresh token encrypted at rest, tied to the MusicMatch user.
-2. **MusicMatch identity via Supabase Auth**
-   - Create a Supabase Auth user (email magic-link or anonymous sign-in) for every Spotify login → real `auth.uid()`.
-   - Link Spotify identity: `users.id = auth.users.id` — this **fixes the latent FK violation** where `create_or_update_user` (`database_helper.py:48`) upserts without `id` while `schema.sql` declares `users.id REFERENCES auth.users(id)`.
-3. **RLS strategy decision (must ship in this phase)**
-   - Move the backend to the **service-role key**, server-side only, with RLS enforced for any direct client access; or issue each request as the user's JWT so `auth.uid()` works.
-   - Recommended: service-role on the backend + strict RLS for future direct client access. Delete the current state where anon key + `auth.uid()=user_id` policies can never match.
+2. **MusicMatch identity as a user document**
+   - MongoDB has no foreign keys: create `users/{spotify_id}` on first login — the latent FK violation in `create_or_update_user` (`database_helper.py:48`, upserting without `id` against `schema.sql`) **disappears with the schema**.
+   - Referential data is denormalized into documents (top-artists snapshot, genre weights) instead of joins; profile updates become single-document writes — schemas can evolve field-by-field with zero migrations.
+3. **Access-control strategy (must ship in this phase)**
+   - All reads/writes go through the backend: driver authenticated by `MONGODB_URI` (server secret only) + our JWT middleware for per-user authorization. End users never receive DB credentials.
+   - Firestore alternative path: versioned security rules in repo + Admin SDK server-side — the same JWT-middleware pattern applies either way.
 4. **First-party API tokens (mobile-ready contract)**
-   - `POST /api/v1/auth/token` (Spotify code flow or Supabase session) → short-lived **JWT access token + refresh token**.
+   - `POST /api/v1/auth/token` (Spotify authorization-code flow) → short-lived **JWT access token + refresh token**.
    - All `/api/v1/**` endpoints take `Authorization: Bearer …` — never `access_token` in query strings or JSON bodies (fixes `backend.py` lines ~388, 455, 516, 565, 610, 719 and `POST /api/sync/user`).
 
-**Acceptance criteria:** Log in from a clean browser → callback completes → `GET /api/v1/me` returns the user with no token in the URL; `users.id` FK satisfied; unauthenticated requests return 401; tokens never logged.
+**Acceptance criteria:** Log in from a clean browser → callback completes → `GET /api/v1/me` returns the user with no token in the URL; a `users/{spotify_id}` document exists; unauthenticated requests return 401; tokens and `MONGODB_URI` never logged.
 
 ---
 
@@ -82,7 +83,7 @@ This is the foundation of "users can login" in the product requirements.
 | 2.2 | **Real background execution** | Replace blocking `time.sleep(0.5)` in `_background_sync_all_data` (`backend.py:237`) with `asyncio.sleep` inside a proper FastAPI background task (or a queue — `arq`/Celery — if runs outgrow one process). |
 | 2.3 | **Real sync status** | Persist sync jobs (`status`, `items_fetched`, `started_at`, `finished_at`, `error`) instead of fabricating `last_synced: datetime.now()` (`backend.py:293`). `GET /api/v1/sync/status` reads the job row; frontend polls it during onboarding. |
 | 2.4 | **Rate-limit & retry** | Central Spotify client: honor `Retry-After` on 429, exponential backoff on 5xx, per-user serialization so two syncs don't race. |
-| 2.5 | **Batch writes** | Replace the N+1 write storm (`upsert_track` + `upsert_track_artists`, `database_helper.py:135`, `:203`) with bulk upserts (PostgREST batch / `INSERT … ON CONFLICT`). Replace delete-then-insert with a single transaction so a crash can't leave empty playlist mirrors. |
+| 2.5 | **Batch writes** | Replace the N+1 write storm (`upsert_track` + `upsert_track_artists`, `database_helper.py:135`, `:203`) with MongoDB `bulkWrite` upserts (one ordered batch per page of results; respect batch size limits). Replace delete-then-insert with a replace-one/transaction so a crash can't leave empty playlist mirrors. |
 | 2.6 | **Idempotency** | Re-running a sync must produce identical data (natural-key upserts, `updated_at` bumps). |
 | 2.7 | **Genre extraction in the loop** | Run `GenreExtractor.extract_genres` (`lastfm.py:27`) on synced artists during sync — not only via the manual `POST /api/genres/extract`. Fix the over-aggressive regex blocklist (`.*dance.*` kills "dancehall", `.*live.*` kills "big band"): anchor patterns to word boundaries and drop/adjust the ~60 patterns that match real genres. |
 
@@ -99,7 +100,7 @@ Built from listening history, no user input required:
 
 - **Genre fingerprint** — the weighted genre vector from `compute_user_genre_preferences` (`database_helper.py:336`, weight `w=(N−p+1)/N` per artist rank).
 - **Top artists / top tracks / eras** — from the three time windows.
-- **Audio-feature fingerprint** — mean/std of the 9 persisted `track_audio_features` columns (energy, valence, danceability, tempo…) → "your sound: high-energy, upbeat, dance-leaning".
+- **Audio-feature fingerprint** — mean/std of the 9 persisted `track_audio_features` fields (energy, valence, danceability, tempo…) → "your sound: high-energy, upbeat, dance-leaning".
 - **Music personality blurb** — deterministic template text over the above (v1; LLM polish optional later).
 - **Profile controls** — visibility (discoverable / hidden), and a "looking for" preference (later: `user_preferences`, currently dormant — wire or drop in this phase).
 
@@ -114,8 +115,8 @@ Implement the two missing components:
 - **Artist score (0.3):** weighted Jaccard over top-200 artists — `Σ min(w_a, w_b) / Σ max(w_a, w_b)` using rank-based weights (captures popularity-aware overlap, not just set intersection).
 - **Audio score (0.3):** cosine similarity between the two users' normalized audio-feature centroids (z-score per feature across the user population, or min-max to [0,1], before cosine).
 - **Overall:** `0.4·genre + 0.3·artist + 0.3·audio ∈ [0,1]`, persisted to `compatibility_scores` with the **component breakdown** so the UI can explain *why* two users match ("92% genre, 71% artists, 64% sound").
-- SQL: extend neighbors of `compute_genre_overlap()` or add `compute_artist_overlap()` / `compute_audio_similarity()` RPCs; keep UUID-ordering constraint handling in Python.
-- Wire or drop dormant tables: `user_audio_preferences` (probably wire — it's the profile's audio centroid), `user_saved_albums`, `user_preferences`.
+- Scoring runs in **application code** — no SQL RPCs: compute genre/artist/audio components in the batch job and persist the score document with its breakdown; key pairs by ordered IDs (min–max) so one document exists per pair.
+- The legacy SQL leftovers (`user_audio_preferences`, `user_saved_albums`, `user_preferences`) are decided per access pattern: embed as fields on the user document (audio centroid lives on the profile) or as subcollections — no `CREATE TABLE` needed when the model changes.
 
 **Acceptance criteria:** Controlled fixtures verify all three components: two identical histories → score ≥ 0.95; disjoint histories → ≤ 0.1; a pure-genre-only fixture shows the 0.40 cap **disappearing**. Profile endpoint renders a complete profile with zero user input.
 
@@ -126,13 +127,13 @@ Implement the two missing components:
 
 1. **Candidate discovery**
    - v1: pairwise scoring for the user cohort (batch job nightly + on-demand for new users; fine up to ~10k users).
-   - v2 threshold: precompute embeddings of the profile vector, switch to vector similarity (pgvector) or an ANN index when pairwise grows O(n²).
+   - v2 threshold: precompute embeddings of the profile vector, switch to vector similarity (MongoDB Atlas Vector Search — or Firestore + Vertex AI Vector Search on the Firebase path) when pairwise grows O(n²).
 2. **Endpoints**
    - `GET /api/v1/matches` — ranked list with score + breakdown + each person's headline (top genre, top artist).
-   - `POST /api/v1/matches/{user_id}/accept` · `/reject` — wire the dormant **`user_matches`** table (states: `pending → liked/matched → passed`); mutual accept = **match**.
+   - `POST /api/v1/matches/{user_id}/accept` · `/reject` — wire the matches model: `users/{id}/swipes` subcollection + `matches/{pair_id}` document (states: `pending → liked/matched → passed`); mutual accept = **match**.
    - `GET /api/v1/matches/{user_id}/chat-starters` — surface the existing `generate_chat_starters()` SQL function (dormant) through an endpoint; generate prompts from shared artists/genres.
    - `DELETE /api/v1/matches/{user_id}` — unmatch.
-3. **Blend playlist creation** — the differentiator: for a matched pair, create a **collaborative blend playlist** via the Spotify Web API (create playlist → add tracks ranked by shared taste: union of both users' top tracks, re-ranked by the pairwise score components). Add `blend_playlist_id` linkage (extend `playlists` table or a join table).
+3. **Blend playlist creation** — the differentiator: for a matched pair, create a **collaborative blend playlist** via the Spotify Web API (create playlist → add tracks ranked by shared taste: union of both users' top tracks, re-ranked by the pairwise score components). Store `blend_playlist_id` on the match document.
 4. **Feed ordering & freshness** — recompute scores incrementally when either user re-syncs (invalidate that user's score rows).
 
 **Acceptance criteria:** Two test accounts with known-overlap histories see each other in ranked matches, accept → mutual match appears, chat starters reference a genuinely shared artist, and one tap creates a real playlist visible in both users' Spotify accounts.
@@ -181,7 +182,7 @@ Implement the two missing components:
 | Piece | Target | Notes |
 |---|---|---|
 | Backend | Docker image → Render / Fly.io / Railway | `uvicorn backend:app`; healthcheck `/health` |
-| Database | Supabase hosted (or Postgres + PostgREST) | Apply `migrations/` via Supabase migration workflow; **service-role key only in platform secrets** |
+| Database | **MongoDB Atlas** (free M0 → paid tiers; alt: Firebase Firestore) | `MONGODB_URI` in platform secrets only; collections created on first write (schema-less); index definitions via `migrate-mongo`; Firestore path: Firebase project + security rules in repo |
 | Frontend | Vercel | `NEXT_PUBLIC_API_URL` env |
 | Spotify redirect URIs | Dashboard: prod + local | Exact-match URIs registered |
 | Secrets | Platform env vars only | `.env.example` tracked; `.env` never |
@@ -203,7 +204,7 @@ Also: application log aggregation, error alerting (Sentry or platform-native), b
   - Sync pagination & idempotency against a mocked Spotify client.
 - **Integration (opt-in):** convert `test_api.py` into pytest markers (`@pytest.mark.integration`) that run only when a server + credentials are present.
 - **GitHub Actions:** on PR → `black --check`, `flake8`, `pytest`, (later) `npm run build`. Cache deps; secrets from GitHub Environments.
-- **No network in default tests:** Spotify and Supabase fully mocked so CI is deterministic.
+- **No network in default tests:** Spotify and the database (MongoDB, via an in-memory/mock repository) fully mocked so CI is deterministic.
 
 **Acceptance criteria:** `pytest` green locally and in CI with no external services; a PR that breaks the score math or blocklist fails CI.
 
@@ -235,9 +236,10 @@ Week 8+       Phase 8  CI/tests (bootstrapped week 1, enforced throughout)
 |---|---|---|
 | Leaked Spotify secret already abused | High | **Rotate first (0.1)**; audit dashboard usage after rotation |
 | Broken `.gitignore` may have committed secrets/datasets | High | History scan (`git log -p` for secrets); rewrite history only if confirmed; datasets kept out of git going forward |
-| RLS + anon key = silent data errors | High | Phase 1 service-role/RLS decision before writing more DB code |
+| Access-control gap: leaked DB creds or over-permissive rules | High | Phase 1 backend-only access decision (JWT middleware) before writing more DB code; no client-side DB access in MVP |
+| NoSQL vendor lock-in (Firebase/MongoDB) | Medium | Thin repository layer over the driver; self-contained documents keep export/migration feasible |
 | Spotify rate limits during sync | Medium | Backoff, per-user serialization, incremental syncs |
-| Pairwise matching O(n²) at scale | Medium | Batch precompute now; pgvector/ANN design note for v2 |
+| Pairwise matching O(n²) at scale | Medium | Batch precompute now; vector-index design note (Atlas Vector Search) for v2 |
 | Scope creep (chat, social feed) | Medium | Chat starters only in MVP; real chat is post-MVP |
 | Spotify API/ToS changes (static dataset from 2019 is stale) | Medium | All features from live API, not static CSVs; pin API version |
 
