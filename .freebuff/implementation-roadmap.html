@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MusicMatch — Implementation Roadmap</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#121820; --panel2:#171f2a; --text:#e6edf3; --muted:#93a1b0;
+  --accent:#1db954; --accent2:#7c5cff; --line:#232d3a; --warn:#f5a623; --danger:#ff6b6b;
+  --chipbg:#1c2532;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  line-height:1.55;font-size:15px}
+code{background:var(--chipbg);border:1px solid var(--line);border-radius:5px;
+  padding:1px 6px;font-size:.86em;font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;color:#9fd8ff;overflow-wrap:anywhere}
+a{color:var(--accent)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+/* ---------- hero ---------- */
+header.hero{padding:56px 0 30px;border-bottom:1px solid var(--line);
+  background:radial-gradient(1000px 340px at 15% -10%,rgba(29,185,84,.16),transparent 60%),
+             radial-gradient(900px 320px at 85% 0%,rgba(124,92,255,.14),transparent 60%)}
+.hero h1{margin:0 0 6px;font-size:2.1rem;letter-spacing:-.5px}
+.hero h1 .g{background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.sub{margin:0 0 16px;color:var(--muted);font-size:1.02rem;max-width:820px}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.badge{background:var(--chipbg);border:1px solid var(--line);border-radius:999px;
+  padding:4px 12px;font-size:.8rem;color:var(--muted)}
+.badge b{color:var(--text)}
+/* ---------- nav ---------- */
+nav.toc{position:sticky;top:0;z-index:50;background:rgba(11,15,20,.92);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav.toc .inner{display:flex;gap:4px;overflow-x:auto;padding:9px 22px;max-width:1080px;margin:0 auto}
+nav.toc a{color:var(--muted);text-decoration:none;font-size:.83rem;padding:5px 10px;
+  border-radius:7px;white-space:nowrap}
+nav.toc a:hover{background:var(--panel2);color:var(--text)}
+nav.toc a.hot{color:var(--accent)}
+/* ---------- sections ---------- */
+section{padding:34px 0 6px}
+h2{font-size:1.35rem;margin:18px 0 6px;letter-spacing:-.3px;display:flex;align-items:center;gap:10px}
+h2 .num{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;
+  border-radius:9px;background:linear-gradient(135deg,rgba(29,185,84,.22),rgba(124,92,255,.22));
+  border:1px solid var(--line);font-size:.85rem;color:var(--accent)}
+h3{font-size:1.02rem;margin:20px 0 8px}
+.lead{color:var(--muted);margin:4px 0 16px;max-width:900px}
+/* ---------- gap cards ---------- */
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.gaplist{list-style:none;margin:8px 0 0;padding:0}
+.gaplist li{padding:6px 0 6px 24px;position:relative;font-size:.93rem;border-bottom:1px dashed #1b2430}
+.gaplist li:last-child{border-bottom:none}
+.gaplist li::before{content:"✖";position:absolute;left:2px;color:var(--danger);font-size:.8rem}
+.gaplist li.p0::before{content:"!";color:var(--warn);font-weight:700}
+/* ---------- phase cards ---------- */
+.phase{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin:14px 0}
+.phase .phead{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:.75rem;border-radius:999px;padding:3px 10px;border:1px solid var(--line);background:var(--chipbg);color:var(--muted)}
+.pill.pnum{background:linear-gradient(135deg,rgba(29,185,84,.25),rgba(124,92,255,.25));color:#c9f5d8;font-weight:600}
+.pill.est{border-color:rgba(245,166,35,.45);color:var(--warn)}
+.phase h3{margin:12px 0 2px;font-size:1.12rem}
+.goal{color:var(--muted);font-size:.92rem;margin:2px 0 10px}
+.tasks{margin:8px 0 10px;padding-left:0;list-style:none}
+.tasks li{padding:5px 0 5px 22px;position:relative;font-size:.93rem;border-bottom:1px dashed #1b2430}
+.tasks li:last-child{border-bottom:none}
+.tasks li::before{content:"\25B8";position:absolute;left:4px;color:var(--accent)}
+.acc{margin-top:10px;background:rgba(29,185,84,.07);border:1px solid rgba(29,185,84,.35);border-left:4px solid var(--accent);border-radius:10px;padding:9px 13px;font-size:.9rem}
+.acc b{color:var(--accent)}
+.meta{font-size:.82rem;color:var(--muted);margin-top:9px}
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin:12px 0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+th{background:var(--panel2);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+tr:last-child td{border-bottom:none}
+.sev-h{color:var(--danger);font-weight:700}
+.sev-m{color:var(--warn);font-weight:700}
+/* ---------- timeline ---------- */
+.tlhead{display:flex;justify-content:space-between;font-size:.74rem;color:var(--muted);margin:14px 0 4px;padding-left:160px}
+.rail{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;margin:5px 0}
+.rail .lbl{font-size:.8rem;color:var(--muted);text-align:right}
+.track{position:relative;height:24px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}
+.track .fill{position:absolute;top:3px;bottom:3px;border-radius:6px;background:linear-gradient(90deg,rgba(29,185,84,.8),rgba(124,92,255,.8));font-size:.7rem;display:flex;align-items:center;justify-content:center;color:#07130c;font-weight:700;white-space:nowrap;overflow:hidden;padding:0 4px}
+/* ---------- checklist ---------- */
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:8px 0;cursor:pointer;user-select:none}
+.check input{accent-color:var(--accent);width:17px;height:17px;margin-top:3px;flex:0 0 auto}
+.check.done{border-color:rgba(29,185,84,.5);background:rgba(29,185,84,.07)}
+.check.done span{text-decoration:line-through;color:var(--muted)}
+.progress{height:10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin:10px 0}
+.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+/* ---------- misc ---------- */
+.tag{display:inline-block;border-radius:6px;padding:1px 8px;font-size:.78rem;font-weight:700}
+.tagd{background:rgba(255,107,107,.12);border:1px solid rgba(255,107,107,.4);color:var(--danger)}
+.tagw{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.4);color:var(--warn)}
+footer{margin-top:40px;padding:22px 0 46px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+@media(max-width:760px){.g2{grid-template-columns:1fr}.hero h1{font-size:1.6rem}.rail{grid-template-columns:92px 1fr}.tlhead{padding-left:102px}}
+</style>
+</head>
+<body>
+<header class="hero"><div class="wrap">
+  <h1>MusicMatch <span class="g">— Implementation Roadmap</span></h1>
+  <p class="sub">From ideation to a deployed product: users log in with Spotify, get a profile auto-created from their listening history, and match with others through a real compatibility score. Web app first, mobile-ready REST API.</p>
+  <div class="badges">
+    <span class="badge"><b>9</b> phases (0–8)</span>
+    <span class="badge"><b>~8 weeks</b> solo-dev MVP</span>
+    <span class="badge">Web + <b>mobile-ready API</b></span>
+    <span class="badge">Source: <b>IMPLEMENTATION_ROADMAP.md</b></span>
+  </div>
+</div></header>
+<nav class="toc"><div class="inner">
+  <a href="#today">Today</a><a href="#p0">P0 Hygiene</a><a href="#p1">P1 Auth</a><a href="#p2">P2 Sync</a>
+  <a href="#p3">P3 Profile</a><a href="#p4">P4 Matching</a><a href="#p5">P5 API</a><a href="#p6">P6 Frontend</a>
+  <a href="#p7">P7 Deploy</a><a href="#p8">P8 Tests</a><a href="#timeline">Timeline</a><a href="#risks">Risks</a><a href="#dod">DoD</a>
+</div></nav>
+<main class="wrap">
+<section id="today">
+  <h2><span class="num">1</span>Where the project is today</h2>
+  <p class="lead">Three generations of work: Jupyter notebooks (research) → FastAPI backend prototype (<code>backend.py</code> 860 LOC, <code>database_helper.py</code> 691 LOC) → Supabase schema (20 tables, 6 dormant). What works: manual Spotify OAuth, sync endpoints, genre pipeline (<code>lastfm.py</code>), genre-preference computation, persistence.</p>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag tagd">P0</span>&nbsp; <b>Broken or dangerous</b>
+      <ul class="gaplist">
+        <li class="p0">Real Spotify <code>CLIENT_ID</code>/<code>CLIENT_SECRET</code> hardcoded in <code>setup.sh</code></li>
+        <li class="p0"><code>.gitignore</code> is UTF-16 with BOM — git parses nothing, so <code>.env</code>, <code>.cache</code>, ~700 MB datasets are untracked-but-visible</li>
+        <li>Compatibility score capped at <b>0.40</b> — <code>artist_score=0.0</code>, <code>audio_score=0.0</code> hardcoded (<code>database_helper.py:542</code>)</li>
+        <li>Sync: no pagination (<code>limit=50</code>), blocking <code>time.sleep</code>, status fabricates <code>last_synced</code></li>
+        <li>CORS <code>allow_origins=["*"]</code> with credentials; tokens accepted in query strings</li>
+      </ul>
+    </div>
+    <div class="card">
+      <b>Missing product features</b>
+      <ul class="gaplist">
+        <li>No frontend at all</li>
+        <li>No first-party auth — raw tokens returned in JSON, copied via <code>input()</code></li>
+        <li>Genre extractor not wired into sync; blocklist kills "dancehall", "big band"</li>
+        <li>No match / accept / reject endpoints, no chat-starter endpoints, no Blend playlist creation</li>
+        <li>No real test suite, no CI — <code>test_api.py</code> is a live-server smoke script</li>
+      </ul>
+    </div>
+  </div>
+</section>
+<section id="p0">
+  <h2><span class="num">P0</span>Security &amp; repository hygiene <span class="pill est">1–2 days · immediate</span></h2>
+  <div class="phase">
+    <p class="goal">A trustworthy repo to build on. <b>No phase starts before this lands.</b></p>
+    <ul class="tasks">
+      <li><b>Rotate Spotify credentials</b> — treat <code>setup.sh</code> <code>CLIENT_ID</code>/<code>CLIENT_SECRET</code> as compromised; regenerate in the developer dashboard; move to tracked <code>.env.example</code> keys only.</li>
+      <li><b>Fix <code>.gitignore</code></b> — rewrite UTF-16 BOM → UTF-8; ignore <code>.env</code>, <code>.cache</code>, <code>__pycache__/</code>, <code>dataset/</code>, <code>merged_tracks_features.csv</code>.</li>
+      <li><b>Commit the backend layer</b> — track <code>backend.py</code>, <code>database_helper.py</code>, <code>musicmatch_client.py</code>, <code>test_api.py</code>, <code>setup.sh</code>; fold stale docs into <code>README.md</code>.</li>
+      <li><b>Lock down CORS &amp; scopes</b> — replace <code>allow_origins=["*"]</code> with an env allowlist; trim <code>SPOTIFY_SCOPE</code>.</li>
+      <li><b>Archive orphans</b> — <code>xanadu.py</code>, spider <code>__pycache__</code> remnants, <code>pdfs/</code>; keep ~700 MB datasets out of git.</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> no secret string in any tracked file; <code>git check-ignore .env</code> succeeds; fresh clone + <code>pip install -r requirements.txt</code> starts the backend; rotation confirmed in Spotify dashboard.</div>
+  </div>
+</section>
+<section id="p1">
+  <h2><span class="num">P1</span>Auth &amp; account model — login <span class="pill est">1 week</span></h2>
+  <div class="phase">
+    <p class="goal">"Users can login" — a stable MusicMatch account per Spotify login. Foundation for everything after it.</p>
+    <ul class="tasks">
+      <li><b>Spotify OAuth 2.0 authorization-code + PKCE</b> — <code>/auth/login</code> → <code>/auth/callback</code> exchanges code server-side; kill raw-token-in-JSON + <code>input()</code> copying; store refresh token encrypted at rest.</li>
+      <li><b>Supabase Auth identity</b> — real <code>auth.uid()</code> per user; <code>users.id = auth.users.id</code> <b>fixes the latent FK violation</b> in <code>create_or_update_user</code> (<code>database_helper.py:48</code>).</li>
+      <li><b>RLS strategy</b> — recommended: service-role key server-side only + strict RLS for any direct client access (today's anon key can never satisfy <code>auth.uid()=user_id</code> policies).</li>
+      <li><b>First-party JWT for API clients</b> — <code>POST /api/v1/auth/token</code> → access + refresh; all <code>/api/v1/**</code> use <code>Authorization: Bearer</code>; never tokens in query strings or bodies.</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> clean browser → login → <code>GET /api/v1/me</code> works with no token in the URL; <code>users.id</code> FK satisfied; unauthenticated = 401; tokens never logged.</div>
+  </div>
+</section>
+<section id="p2">
+  <h2><span class="num">P2</span>Sync engine correctness — listening history <span class="pill est">1–1.5 weeks</span></h2>
+  <div class="phase">
+    <p class="goal">Complete, observable, rate-limit-safe ingestion — the raw material for every profile.</p>
+    <ul class="tasks">
+      <li><b>Pagination</b> — loop <code>offset</code> past every <code>limit=50</code> fetch: top tracks/artists (3 windows), saved tracks/albums, playlists.</li>
+      <li><b>Real background execution</b> — replace blocking <code>time.sleep(0.5)</code> in <code>_background_sync_all_data</code> (<code>backend.py:237</code>) with <code>asyncio.sleep</code> / a queue.</li>
+      <li><b>Real sync status</b> — persist job rows (status, counts, timestamps, error) instead of fabricating <code>last_synced</code> (<code>backend.py:293</code>); frontend polls it.</li>
+      <li><b>Rate-limit &amp; retry</b> — honor <code>Retry-After</code> on 429, backoff on 5xx, per-user serialization.</li>
+      <li><b>Batch writes</b> — kill the N+1 storm in <code>upsert_track</code>/<code>upsert_track_artists</code> (<code>database_helper.py:135</code>, <code>:203</code>); delete-then-insert → single transaction.</li>
+      <li><b>Idempotency</b> — re-running a sync yields identical data.</li>
+      <li><b>Genre extraction in the loop</b> — run <code>GenreExtractor.extract_genres</code> (<code>lastfm.py:27</code>) during sync, not just the manual endpoint; fix blocklist regexes killing "dancehall"/"big band".</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> a 2,000+ track user syncs to 100% with zero loss; status shows genuine progress; concurrent syncs don't duplicate rows; re-sync is a no-op diff; all artists get genres.</div>
+  </div>
+</section>
+<section id="p3">
+  <h2><span class="num">P3</span>Auto-profile &amp; compatibility scoring <span class="pill est">1–1.5 weeks</span></h2>
+  <div class="phase">
+    <p class="goal">"Create a profile (or make one for them)" + a <b>real</b> compatibility score. Today's math can never exceed 0.40.</p>
+    <h3>Auto-generated profile (zero user input)</h3>
+    <ul class="tasks">
+      <li><b>Genre fingerprint</b> — weighted vector from <code>compute_user_genre_preferences</code> (<code>database_helper.py:336</code>, weight <code>w=(N−p+1)/N</code>).</li>
+      <li><b>Top artists / tracks / eras</b> from the three time windows; <b>audio-feature fingerprint</b> (energy, valence, danceability, tempo…) → plain-language sound blurb.</li>
+      <li><b>Music personality</b> deterministic template (v1); visibility controls; wire-or-drop dormant <code>user_preferences</code>, <code>user_audio_preferences</code>, <code>user_saved_albums</code>.</li>
+      <li>Endpoints: <code>GET /api/v1/me/profile</code>, public <code>GET /api/v1/users/{id}</code> respecting visibility.</li>
+    </ul>
+    <h3>Remove the 0.40 cap</h3>
+    <ul class="tasks">
+      <li><b>Artist score (0.3)</b> — weighted Jaccard over top-200 artists: <code>Σ min(wₐ,w_b) / Σ max(wₐ,w_b)</code>.</li>
+      <li><b>Audio score (0.3)</b> — cosine similarity of normalized audio-feature centroids (replace the hardcoded <code>0.0</code>s at <code>database_helper.py:542</code>).</li>
+      <li><b>Overall</b> = <code>0.4·genre + 0.3·artist + 0.3·audio</code> ∈ [0,1], stored with a <b>component breakdown</b> so the UI can explain the match.</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> identical histories → ≥ 0.95; disjoint → ≤ 0.1; genre-only fixture proves the 0.40 cap is gone; profile renders complete with no user input.</div>
+  </div>
+</section>
+<section id="p4">
+  <h2><span class="num">P4</span>Matching product surface <span class="pill est">1 week</span></h2>
+  <div class="phase">
+    <p class="goal">Users see and act on matches.</p>
+    <ul class="tasks">
+      <li><b>Candidate discovery</b> — v1 pairwise batch (nightly + on new users, fine to ~10k users); v2 pgvector/ANN when O(n²) grows.</li>
+      <li><b>Endpoints</b> — <code>GET /api/v1/matches</code> (ranked + breakdown + headline); <code>POST …/accept</code> · <code>…/reject</code> wiring dormant <code>user_matches</code> (mutual accept = match); <code>GET …/chat-starters</code> surfacing <code>generate_chat_starters()</code>; <code>DELETE …</code> unmatch.</li>
+      <li><b>Blend playlist creation</b> — matched pair → collaborative playlist via Spotify Web API: union of top tracks re-ranked by pairwise score; store <code>blend_playlist_id</code>.</li>
+      <li><b>Freshness</b> — invalidate a user's score rows when they re-sync.</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> two known-overlap accounts see each other ranked; mutual accept → match; chat starters cite a genuinely shared artist; one tap creates a playlist visible in both Spotify accounts.</div>
+  </div>
+</section>
+<section id="p5">
+  <h2><span class="num">P5</span>API contract hardening — mobile-ready <span class="pill est">3–5 days · interleaved</span></h2>
+  <div class="phase">
+    <p class="goal">One stable, documented API for web now and mobile later.</p>
+    <ul class="tasks">
+      <li><b>Version &amp; envelope</b> — all product endpoints under <code>/api/v1</code>; uniform response shape; fix <code>APIResponse.timestamp</code> evaluated once at import (<code>backend.py:119</code>).</li>
+      <li><b>Cursor pagination</b> on list endpoints; consistent JSON error model with proper HTTP codes.</li>
+      <li><b>Logging</b> — structured <code>logging</code> + request IDs replace <code>print</code>; never log tokens.</li>
+      <li><b>Validation</b> — deprecated <code>Query(regex=…)</code> → <code>pattern=</code> (<code>backend.py:360</code>, 427, 637); 422 with field messages.</li>
+      <li><b>OpenAPI</b> — FastAPI <code>/docs</code> is the contract; commit generated <code>openapi.json</code> so a mobile client can codegen; document PKCE + Bearer flow.</li>
+      <li><b>CORS for SPA</b> — explicit origins + credentials + <code>Authorization</code> header.</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> a stranger builds a minimal client from <code>openapi.json</code> alone; every endpoint is Bearer-authenticated; no token in any URL, body, or log line.</div>
+  </div>
+</section>
+<section id="p6">
+  <h2><span class="num">P6</span>Web frontend <span class="pill est">2–3 weeks</span></h2>
+  <div class="phase">
+    <p class="goal">A real user completes login → profile → match. <b>Stack:</b> Next.js (App Router) + TypeScript + Tailwind on Vercel, talking only to <code>/api/v1</code>.</p>
+    <ul class="tasks">
+      <li><code>/</code> landing → "Log in with Spotify" (starts PKCE) · <code>/onboarding/sync</code> live progress polling real job status · <code>/profile</code> auto-profile with visibility controls</li>
+      <li><code>/matches</code> ranked candidates with <b>score-breakdown bars</b> (genre/artist/audio) · <code>/matches/[id]</code> shared-taste highlights, chat starters, <b>Make Blend playlist</b> button · <code>/settings</code> re-sync / disconnect</li>
+      <li>UX: profile usable before writing anything; loading/empty/error states; mobile-responsive.</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> a cold user on a fresh browser logs in → watches real sync progress → sees a full profile → matches → creates a Blend playlist, with no manual token pasting.</div>
+  </div>
+</section>
+<section id="p7">
+  <h2><span class="num">P7</span>Deployment <span class="pill est">3–5 days · after P1</span></h2>
+  <div class="phase">
+    <ul class="tasks">
+      <li><b>Backend</b> — Docker → Render / Fly.io / Railway; <code>uvicorn backend:app</code>; healthcheck <code>/health</code>.</li>
+      <li><b>Database</b> — hosted Supabase via <code>migrations/</code> workflow; <b>service-role key only in platform secrets</b>; backups on.</li>
+      <li><b>Frontend</b> — Vercel (<code>NEXT_PUBLIC_API_URL</code>); exact-match Spotify redirect URIs for prod + local.</li>
+      <li><b>Environments</b> — staging + prod with separate DBs; secrets in platform env only (<code>.env.example</code> tracked, <code>.env</code> never); log aggregation, error alerting, uptime check.</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> a stranger opens the prod URL and completes the full P6 flow; no secret in repo or client bundles; rollback = redeploy previous image.</div>
+  </div>
+</section>
+<section id="p8">
+  <h2><span class="num">P8</span>Testing &amp; CI <span class="pill est">~1 day bootstrap · continuous</span></h2>
+  <div class="phase">
+    <ul class="tasks">
+      <li><b>Unit (pytest)</b> — genre fixtures + blocklist regressions ("dancehall", "big band" survive); compatibility fixtures (identical ≥ 0.95, disjoint ≤ 0.1, cap gone, UUID-swap invariance); profile derivation; sync pagination/idempotency against a mocked Spotify client.</li>
+      <li><b>Integration (opt-in)</b> — mark <code>test_api.py</code> as <code>@pytest.mark.integration</code>, only with server + credentials.</li>
+      <li><b>GitHub Actions</b> — on PR: <code>black --check</code>, <code>flake8</code>, <code>pytest</code>, later <code>npm run build</code>; no network in default tests.</li>
+    </ul>
+    <div class="acc"><b>Acceptance:</b> <code>pytest</code> green locally and in CI with no external services; a PR breaking the score math or blocklist fails CI.</div>
+  </div>
+</section>
+<section id="timeline">
+  <h2><span class="num">T</span>Sequencing &amp; timeline <span class="pill est">~8 weeks solo dev</span></h2>
+  <p class="lead">Critical path: P0 → P1 → P2 → P3 → P4 → P6 → P7; P5 and P8 interleave. First demo ("walking skeleton") at end of week 2: one user logs in with real sync progress.</p>
+  <div class="tlhead"><span>W0</span><span>W1</span><span>W2</span><span>W3</span><span>W4</span><span>W5</span><span>W6</span><span>W7</span><span>W8</span></div>
+  <div class="rail"><span class="lbl">P0 hygiene</span><div class="track"><div class="fill" style="left:0%;width:11.1%">1–2d</div></div></div>
+  <div class="rail"><span class="lbl">P1 auth</span><div class="track"><div class="fill" style="left:11.1%;width:11.1%">login</div></div></div>
+  <div class="rail"><span class="lbl">P2 sync</span><div class="track"><div class="fill" style="left:22.2%;width:22.2%">ingestion</div></div></div>
+  <div class="rail"><span class="lbl">P3 profile + score</span><div class="track"><div class="fill" style="left:33.3%;width:22.2%">core backend</div></div></div>
+  <div class="rail"><span class="lbl">P5 API hardening</span><div class="track"><div class="fill" style="left:44.4%;width:22.2%">contract</div></div></div>
+  <div class="rail"><span class="lbl">P4 matching</span><div class="track"><div class="fill" style="left:55.6%;width:11.1%">matches</div></div></div>
+  <div class="rail"><span class="lbl">P6 frontend</span><div class="track"><div class="fill" style="left:66.7%;width:33.3%">web app</div></div></div>
+  <div class="rail"><span class="lbl">P7 deploy</span><div class="track"><div class="fill" style="left:88.9%;width:11.1%">live</div></div></div>
+  <div class="rail"><span class="lbl">P8 tests + CI</span><div class="track"><div class="fill" style="left:0%;width:100%">continuous — bootstrapped week 1, enforced throughout</div></div></div>
+</section>
+<section id="risks">
+  <h2><span class="num">R</span>Risk register</h2>
+  <table>
+    <tr><th style="width:34%">Risk</th><th style="width:12%">Impact</th><th>Mitigation</th></tr>
+    <tr><td>Leaked Spotify secret already abused</td><td class="sev-h">High</td><td>Rotate first (0.1); audit dashboard usage after rotation</td></tr>
+    <tr><td>Broken <code>.gitignore</code> may have committed secrets/datasets</td><td class="sev-h">High</td><td>History scan (<code>git log -p</code>); rewrite history only if confirmed; keep datasets out of git</td></tr>
+    <tr><td>RLS + anon key = silent data errors</td><td class="sev-h">High</td><td>P1 service-role/RLS decision before writing more DB code</td></tr>
+    <tr><td>Spotify rate limits during sync</td><td class="sev-m">Medium</td><td>Backoff, per-user serialization, incremental syncs</td></tr>
+    <tr><td>Pairwise matching O(n²) at scale</td><td class="sev-m">Medium</td><td>Batch precompute now; pgvector/ANN design for v2</td></tr>
+    <tr><td>Scope creep (chat, social feed)</td><td class="sev-m">Medium</td><td>Chat starters only in MVP; real chat is post-MVP</td></tr>
+    <tr><td>Spotify API/ToS changes (2019 dataset stale)</td><td class="sev-m">Medium</td><td>Live API only, not static CSVs; pin API version</td></tr>
+  </table>
+</section>
+<section id="dod">
+  <h2><span class="num">✓</span>Definition of Done <span class="pill">final product</span></h2>
+  <p class="lead">Click to tick — progress is saved in your browser.</p>
+  <div class="progress"><i id="dodbar"></i></div>
+  <div id="dodwrap">
+    <label class="check"><input type="checkbox" id="dod0"><span>User logs in with Spotify on web; account persists across sessions; no tokens in URLs, logs, or the repo.</span></label>
+    <label class="check"><input type="checkbox" id="dod1"><span>A profile is <b>auto-created from listening history</b> on first login and renders without any manual input.</span></label>
+    <label class="check"><input type="checkbox" id="dod2"><span>Compatibility scores use <b>all three components</b> (genre/artist/audio), are honest in [0,1], and show a per-component breakdown.</span></label>
+    <label class="check"><input type="checkbox" id="dod3"><span>Users browse ranked matches, accept/reject, see chat starters on mutual match, and can create a Blend playlist in Spotify.</span></label>
+    <label class="check"><input type="checkbox" id="dod4"><span>Versioned <code>/api/v1</code> documented via OpenAPI — a mobile client can be built with zero backend changes.</span></label>
+    <label class="check"><input type="checkbox" id="dod5"><span>Deployed at a public URL with staging + prod, CI enforcing lint/tests, and a green suite that runs without external services.</span></label>
+  </div>
+</section>
+</main>
+<footer><div class="wrap">
+  MusicMatch implementation roadmap — visual rendering of <code>IMPLEMENTATION_ROADMAP.md</code> (source of truth).
+  Companion: <code>.freebuff/codebase-explainer.html</code>. &nbsp;·&nbsp; <span id="dodcount">0/6 done</span>
+</div></footer>
+<script>
+(function(){
+  var boxes=document.querySelectorAll('#dodwrap input[type=checkbox]'),bar=document.getElementById('dodbar'),cnt=document.getElementById('dodcount');
+  function refresh(){var n=0;boxes.forEach(function(b){if(b.checked)n++;b.closest('.check').classList.toggle('done',b.checked);});
+    bar.style.width=(n/boxes.length*100)+'%';cnt.textContent=n+'/'+boxes.length+' done';}
+  try{var saved=JSON.parse(localStorage.getItem('mm-dod')||'[]');boxes.forEach(function(b,i){b.checked=!!saved[i];});}catch(e){}
+  boxes.forEach(function(b){b.addEventListener('change',function(){try{localStorage.setItem('mm-dod',JSON.stringify([].map.call(boxes,function(x){return x.checked;})));}catch(e){}refresh();});});
+  refresh();
+  var links=document.querySelectorAll('nav.toc a');
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(a){a.classList.toggle('hot',a.getAttribute('href')==='#'+e.target.id);});}});},{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('main section[id]').forEach(function(s){io.observe(s);});
+  }
+})();
+</script>
+</body>
+</html>
