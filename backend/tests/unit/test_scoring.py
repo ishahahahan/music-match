@@ -27,9 +27,7 @@ def test_genre_only_fixture_is_not_capped_at_040():
     genre_only = compatibility_score(genre=0.9, artist=0.0, audio=0.0)
     assert genre_only["overall"] == 0.36
     full = compatibility_score(genre=0.9, artist=0.5, audio=0.5)
-    assert (
-        full["overall"] == 0.66
-    ), "artist/audio components must lift the score past 0.40"
+    assert full["overall"] == 0.66, "artist/audio components must lift the score past 0.40"
 
 
 def test_overall_is_bounded():

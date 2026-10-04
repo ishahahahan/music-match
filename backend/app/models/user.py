@@ -17,7 +17,16 @@ class ProfileRead(BaseModel):
     spotify_id: str
     display_name: str
     top_genres: list[str] = Field(default_factory=list)
+    genre_fingerprint: dict[str, float] = Field(default_factory=dict)
     top_artists: list[str] = Field(default_factory=list)
+    top_tracks: list[str] = Field(default_factory=list)
     audio_fingerprint: dict[str, float] = Field(default_factory=dict)
     music_blurb: str = ""
     discoverable: bool = True
+    synced_track_count: int = 0
+
+
+class ProfileVisibilityIn(BaseModel):
+    """Profile control: discoverable (shown in matching) vs hidden."""
+
+    discoverable: bool
