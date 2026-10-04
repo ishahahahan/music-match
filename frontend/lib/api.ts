@@ -2,6 +2,10 @@
  * Typed fetch wrapper for the MusicMatch API — the same contract a mobile client uses.
  * Tokens live in memory/localStorage and travel ONLY in the Authorization header,
  * never in query strings (roadmap Phase 5).
+ *
+ * Every response uses the Phase 5 envelope:
+ *   success -> { data, request_id, timestamp }
+ *   error   -> { error: { code, message, details? }, request_id, timestamp }
  */
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -26,9 +30,12 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       ...init.headers,
     },
   });
+  const body = (await res.json().catch(() => null)) as {
+    data?: T;
+    error?: { message?: string; details?: unknown };
+  } | null;
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, String(body.detail));
+    throw new ApiError(res.status, String(body?.error?.message ?? res.statusText));
   }
-  return (await res.json()) as T;
+  return body?.data as T;
 }

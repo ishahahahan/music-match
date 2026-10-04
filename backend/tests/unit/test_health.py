@@ -10,7 +10,10 @@ client = TestClient(create_app())
 def test_health_returns_ok():
     res = client.get("/api/v1/health")
     assert res.status_code == 200
-    assert res.json() == {"status": "ok", "service": "musicmatch-api"}
+    body = res.json()
+    assert body["data"] == {"status": "ok", "service": "musicmatch-api"}
+    assert body["request_id"]
+    assert body["timestamp"]
 
 
 def test_openapi_documents_v1_routes():
@@ -22,5 +25,8 @@ def test_openapi_documents_v1_routes():
     assert "/api/v1/matches" in paths
 
 
-def test_unimplemented_phase_returns_501():
-    assert client.get("/api/v1/me/profile").status_code == 501
+def test_phase1_login_is_the_only_501_stub_left():
+    """Phases 3-5 are implemented; only Phase 1 login issuance remains a stub."""
+    res = client.get("/api/v1/auth/login")
+    assert res.status_code == 501
+    assert client.get("/api/v1/me/profile").status_code == 401  # real auth gate

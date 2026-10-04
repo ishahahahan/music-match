@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "MusicMatch API",
-    "description": "Mobile-ready REST API: login, auto-profiles, compatibility matching.",
+    "description": "Mobile-ready REST API: login, auto-profiles, compatibility matching. Every /api/v1 response is wrapped in a uniform envelope: success bodies are {data, request_id, timestamp}; errors are {error: {code, message, details?}, request_id, timestamp}. Authenticate with Authorization: Bearer <JWT> \u2014 tokens never appear in URLs.",
     "version": "0.1.0"
   },
   "paths": {
@@ -57,16 +57,45 @@
         ],
         "summary": "Start a listening-history sync",
         "operationId": "start_sync_api_v1_sync_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Start Sync Api V1 Sync Start Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/sync/status": {
@@ -81,11 +110,20 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Sync Status Api V1 Sync Status Get"
+                }
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/me/profile": {
@@ -100,11 +138,62 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Update profile controls",
+        "operationId": "update_profile_api_v1_me_profile_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileVisibilityIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/users/{user_id}": {
@@ -132,7 +221,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
               }
             }
           },
@@ -156,33 +247,114 @@
         ],
         "summary": "Ranked match candidates",
         "operationId": "list_matches_api_v1_matches_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Offset cursor",
+              "title": "Cursor"
+            },
+            "description": "Offset cursor"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MatchesPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
         }
       }
     },
-    "/api/v1/matches/{user_id}/accept": {
+    "/api/v1/matches/recompute": {
+      "post": {
+        "tags": [
+          "matches"
+        ],
+        "summary": "Recompute my scores",
+        "operationId": "recompute_api_v1_matches_recompute_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecomputeResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/matches/{target_id}/accept": {
       "post": {
         "tags": [
           "matches"
         ],
         "summary": "Accept a candidate",
-        "operationId": "accept_api_v1_matches__user_id__accept_post",
+        "operationId": "accept_api_v1_matches__target_id__accept_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "user_id",
+            "name": "target_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "User Id"
+              "title": "Target Id"
             }
           }
         ],
@@ -191,7 +363,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SwipeResult"
+                }
               }
             }
           },
@@ -208,21 +382,26 @@
         }
       }
     },
-    "/api/v1/matches/{user_id}/reject": {
+    "/api/v1/matches/{target_id}/reject": {
       "post": {
         "tags": [
           "matches"
         ],
         "summary": "Reject a candidate",
-        "operationId": "reject_api_v1_matches__user_id__reject_post",
+        "operationId": "reject_api_v1_matches__target_id__reject_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "user_id",
+            "name": "target_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "User Id"
+              "title": "Target Id"
             }
           }
         ],
@@ -231,7 +410,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SwipeResult"
+                }
               }
             }
           },
@@ -248,21 +429,26 @@
         }
       }
     },
-    "/api/v1/matches/{user_id}/chat-starters": {
+    "/api/v1/matches/{target_id}/chat-starters": {
       "get": {
         "tags": [
           "matches"
         ],
         "summary": "Chat starters for a match",
-        "operationId": "chat_starters_api_v1_matches__user_id__chat_starters_get",
+        "operationId": "chat_starters_for_api_v1_matches__target_id__chat_starters_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "user_id",
+            "name": "target_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "User Id"
+              "title": "Target Id"
             }
           }
         ],
@@ -271,7 +457,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ChatStartersOut"
+                }
               }
             }
           },
@@ -288,21 +476,26 @@
         }
       }
     },
-    "/api/v1/matches/{user_id}/blend": {
-      "post": {
+    "/api/v1/matches/{target_id}": {
+      "delete": {
         "tags": [
           "matches"
         ],
-        "summary": "Create the Blend playlist",
-        "operationId": "blend_api_v1_matches__user_id__blend_post",
+        "summary": "Unmatch a candidate",
+        "operationId": "unmatch_api_v1_matches__target_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "user_id",
+            "name": "target_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "User Id"
+              "title": "Target Id"
             }
           }
         ],
@@ -311,7 +504,66 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SelfAction"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matches/{target_id}/blend": {
+      "post": {
+        "tags": [
+          "matches"
+        ],
+        "summary": "Create the Blend playlist",
+        "operationId": "blend_api_v1_matches__target_id__blend_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlendResult"
+                }
               }
             }
           },
@@ -331,6 +583,75 @@
   },
   "components": {
     "schemas": {
+      "BlendRequest": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Access Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token"
+        ],
+        "title": "BlendRequest"
+      },
+      "BlendResult": {
+        "properties": {
+          "pair_id": {
+            "type": "string",
+            "title": "Pair Id"
+          },
+          "playlist_id": {
+            "type": "string",
+            "title": "Playlist Id"
+          },
+          "playlist_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playlist Url"
+          },
+          "track_count": {
+            "type": "integer",
+            "title": "Track Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pair_id",
+          "playlist_id",
+          "track_count"
+        ],
+        "title": "BlendResult"
+      },
+      "ChatStartersOut": {
+        "properties": {
+          "pair_id": {
+            "type": "string",
+            "title": "Pair Id"
+          },
+          "starters": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Starters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pair_id",
+          "starters"
+        ],
+        "title": "ChatStartersOut"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -343,6 +664,309 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Headline": {
+        "properties": {
+          "top_genre": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Genre"
+          },
+          "top_artist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Artist"
+          }
+        },
+        "type": "object",
+        "title": "Headline",
+        "description": "One-line taste preview shown on a candidate card."
+      },
+      "MatchCandidate": {
+        "properties": {
+          "pair_id": {
+            "type": "string",
+            "title": "Pair Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "score": {
+            "$ref": "#/components/schemas/ScoreBreakdown"
+          },
+          "headline": {
+            "$ref": "#/components/schemas/Headline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pair_id",
+          "user_id",
+          "display_name",
+          "score",
+          "headline"
+        ],
+        "title": "MatchCandidate"
+      },
+      "MatchesPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MatchCandidate"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limit"
+        ],
+        "title": "MatchesPage",
+        "description": "Cursor-paginated ranked candidates (Phase 5 pagination contract)."
+      },
+      "ProfileRead": {
+        "properties": {
+          "spotify_id": {
+            "type": "string",
+            "title": "Spotify Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "top_genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Top Genres"
+          },
+          "genre_fingerprint": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Genre Fingerprint"
+          },
+          "top_artists": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Top Artists"
+          },
+          "top_tracks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Top Tracks"
+          },
+          "audio_fingerprint": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Audio Fingerprint"
+          },
+          "music_blurb": {
+            "type": "string",
+            "title": "Music Blurb",
+            "default": ""
+          },
+          "discoverable": {
+            "type": "boolean",
+            "title": "Discoverable",
+            "default": true
+          },
+          "synced_track_count": {
+            "type": "integer",
+            "title": "Synced Track Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "spotify_id",
+          "display_name"
+        ],
+        "title": "ProfileRead",
+        "description": "Auto-generated profile returned by GET /me/profile (Phase 3)."
+      },
+      "ProfileVisibilityIn": {
+        "properties": {
+          "discoverable": {
+            "type": "boolean",
+            "title": "Discoverable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "discoverable"
+        ],
+        "title": "ProfileVisibilityIn",
+        "description": "Profile control: discoverable (shown in matching) vs hidden."
+      },
+      "RecomputeResult": {
+        "properties": {
+          "scores_written": {
+            "type": "integer",
+            "title": "Scores Written"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scores_written"
+        ],
+        "title": "RecomputeResult"
+      },
+      "ScoreBreakdown": {
+        "properties": {
+          "genre": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Genre"
+          },
+          "artist": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Artist"
+          },
+          "audio": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Audio"
+          },
+          "overall": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Overall"
+          }
+        },
+        "type": "object",
+        "required": [
+          "genre",
+          "artist",
+          "audio",
+          "overall"
+        ],
+        "title": "ScoreBreakdown",
+        "description": "All three components \u2014 no more silent 0.40 cap."
+      },
+      "SelfAction": {
+        "properties": {
+          "unmatched": {
+            "type": "boolean",
+            "title": "Unmatched"
+          },
+          "pair_id": {
+            "type": "string",
+            "title": "Pair Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unmatched",
+          "pair_id"
+        ],
+        "title": "SelfAction",
+        "description": "Response for DELETE /matches/{user_id}."
+      },
+      "SwipeResult": {
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "title": "Target Id"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "like",
+              "pass"
+            ],
+            "title": "Action"
+          },
+          "pair_id": {
+            "type": "string",
+            "title": "Pair Id"
+          },
+          "match_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "liked",
+                  "matched",
+                  "passed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_id",
+          "action",
+          "pair_id"
+        ],
+        "title": "SwipeResult"
+      },
+      "SyncStartRequest": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Access Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token"
+        ],
+        "title": "SyncStartRequest"
       },
       "ValidationError": {
         "properties": {
@@ -376,6 +1000,12 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   }

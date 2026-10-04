@@ -23,7 +23,24 @@ async def get_user(spotify_id: str) -> dict | None:
     return await get_db()[COLLECTION].find_one({"_id": spotify_id})
 
 
+async def list_users(exclude: str | None = None) -> list[dict]:
+    """Discoverable users (missing `discoverable` counts as discoverable)."""
+    query: dict = {"discoverable": {"$ne": False}}
+    if exclude:
+        query["_id"] = {"$ne": exclude}
+    return await get_db()[COLLECTION].find(query).to_list(length=10_000)
+
+
 async def set_visibility(spotify_id: str, discoverable: bool) -> None:
     await get_db()[COLLECTION].update_one(
         {"_id": spotify_id}, {"$set": {"discoverable": discoverable}}
+    )
+
+
+async def update_user_fields(spotify_id: str, fields: dict) -> None:
+    """Update derived profile fields without replacing authentication metadata."""
+    await get_db()[COLLECTION].update_one(
+        {"_id": spotify_id},
+        {"$set": {**fields, "updated_at": datetime.now(timezone.utc)}},
+        upsert=True,
     )
